@@ -1,0 +1,7 @@
+[
+  {"id": 1, "customer": "Acme Logistics", "subject": "Cannot connect to VPN since this morning", "status": "open", "body": "Three staff in the Surabaya office get 'authentication failed' on the VPN. It worked yesterday."},
+  {"id": 2, "customer": "Acme Logistics", "subject": "Request: new laptop for finance hire", "status": "open", "body": "New accountant starts on the 1st. Needs a laptop with Office and the accounting app installed."},
+  {"id": 3, "customer": "Borneo Coffee", "subject": "Email going to spam for all customers", "status": "open", "body": "Since Monday every invoice email we send lands in spam. Our domain is borneocoffee.example."},
+  {"id": 4, "customer": "Cahaya Dental", "subject": "Printer offline in reception", "status": "closed", "body": "Reception printer shows offline. Resolved by restarting the print spooler."},
+  {"id": 5, "customer": "Cahaya Dental", "subject": "Server disk 95% full", "status": "open", "body": "Monitoring alert: file server D: drive is 95% full. Backups may start failing."}
+]

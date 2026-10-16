@@ -1,0 +1,28 @@
+[project]
+name = "msp-ops-copilot"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "seppam", email = "19153247+seppam@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.5.9",
+    "httpx>=0.28.1",
+    "mcp>=2.3.0",
+    "openai>=3.31.0",
+    "pydantic>=2.14.1",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+msp-ops-copilot = "msp_ops_copilot:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
