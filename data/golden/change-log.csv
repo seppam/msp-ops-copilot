@@ -1,0 +1,6 @@
+change_id,date,description,menus_affected
+CHG-01,2026-10-05,Update modul Accounting: konfigurasi pajak PPN 11% pada invoice customer,Accounting > Customers > Invoices
+CHG-02,2026-10-08,Penambahan field wajib Gudang Tujuan pada pengiriman,Inventory > Operations > Deliveries
+CHG-03,2026-10-12,Perubahan template email quotation,Sales > Orders > Quotations
+CHG-04,2026-10-13,Migrasi data: penggabungan customer duplikat,Contacts; Accounting > Customers
+CHG-05,2026-10-14,Upgrade laporan valuasi stok,Inventory > Reporting > Stock
