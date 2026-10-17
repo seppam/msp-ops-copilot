@@ -25,11 +25,17 @@ class Provider:
     base_url: str
     api_key_env: str
     model_env: str
+    extra_body: dict | None = None  # provider-specific request options
 
 
 PROVIDERS = {
     "groq": Provider(
-        "groq", "https://api.groq.com/openai/v1", "GROQ_API_KEY", "GROQ_MODEL"
+        "groq", "https://api.groq.com/openai/v1", "GROQ_API_KEY", "GROQ_MODEL",
+        extra_body={"reasoning_effort": "low"},  # gpt-oss: fewer hidden reasoning tokens
+    ),
+    # Paid per token. Only used if LLM_PROVIDER=openrouter and a key is set; see README budget rules.
+    "openrouter": Provider(
+        "openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", "OPENROUTER_MODEL"
     ),
     "gemini": Provider(
         "gemini",
