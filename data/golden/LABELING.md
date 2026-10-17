@@ -8,6 +8,7 @@ File: `tickets.csv` (buka dengan Numbers, Excel, atau editor teks). Kolom kiri a
 | type | jenis masalah sebenarnya menurut Anda | bug, data, change_impact, request, other |
 | priority | prioritas menurut dampak, urgensi, SLA | P1, P2, P3, P4, unknown (info belum cukup) |
 | handover | siapa yang menangani | team, review, project, needs_info, needs_human, route_comsec, route_network, route_change_request, route_request |
+| resolution_path | hasil yang dicapai dalam SLA | fix_now (perbaikan langsung), workaround (alternatif alur bisnis), ask_user (konfirmasi ke pelapor), route (diteruskan ke tim lain), escalate (perlu keputusan Team Leader) |
 | missing_info | info yang kurang, dipisah titik koma | langkah_reproduksi, contoh_record, pesan_error, waktu_mulai, user_terdampak |
 | duplicate_of | id tiket yang sama dengan tiket ini | mis. T03 |
 | related_change | perubahan di change-log.csv yang diduga penyebab | mis. CHG-02 |
@@ -19,3 +20,5 @@ Yang paling penting dikoreksi:
 1. Prioritas: apakah sesuai cara Team Leader Anda mengelompokkan masalah?
 2. Tiket yang menurut Anda ambigu. Tulis alasannya di `labeler_note`. Tiket ambigu lebih berguna daripada yang jelas.
 3. `data/kb_app/*.md` adalah draft aturan. Koreksi angka SLA dan dampak menu agar sesuai pengalaman Anda. Jangan memakai data rahasia perusahaan Anda. Pakai versi karangan atau yang sudah disamarkan.
+
+Status: kolom `reviewed` bernilai `y` setelah Anda mengonfirmasi label di chat (versi 1). Koreksi baris yang masih salah kapan saja.

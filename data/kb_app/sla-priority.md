@@ -1,7 +1,7 @@
 # Kebijakan SLA dan Urutan Pengerjaan Application Support (DRAFT)
 
 ## SLA
-Semua tiket memakai target yang sama, sekitar 3 jam. Jam SLA mulai berjalan setelah petugas ops yang ditugaskan menerima email penugasan, bukan saat pelapor mengirim tiket. Karena itu tiket yang ditugaskan ke tim yang salah atau tidak lengkap akan membuang waktu SLA.
+Semua tiket memakai target yang sama, sekitar 3 jam, dan target itu mencakup penyelesaian. Setelah menerima tiket, petugas memeriksa, lalu salah satu dari tiga hasil harus dicapai dalam target: (1) konfirmasi ke pelapor bila ada informasi yang dibutuhkan, (2) perbaikan langsung bila bisa segera diperbaiki, misalnya perubahan data, atau (3) alternatif alur bisnis sebagai workaround bila masalahnya masih menunggu perbaikan bug. Jam SLA mulai berjalan setelah petugas ops yang ditugaskan menerima email penugasan, bukan saat pelapor mengirim tiket. Karena itu tiket yang ditugaskan ke tim yang salah atau tidak lengkap akan membuang waktu SLA.
 
 ## Prioritas menentukan urutan pengerjaan
 Prioritas tidak mengubah target SLA. Prioritas dipakai Team Leader untuk mengelompokkan masalah dan menentukan mana yang dikerjakan lebih dulu. Keputusan akhir ada di Team Leader.
