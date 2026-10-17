@@ -95,7 +95,9 @@ def disk_mb(name: str) -> float | None:
     if name not in LOCAL_MODELS:
         return None
     key = LOCAL_MODELS[name].split("/")[-1].lower()
-    total = sum(f.stat().st_size for d in FASTEMBED_CACHE.glob("*") if key in d.name.lower() for f in d.rglob("*") if f.is_file())
+    # Cache entries are links into a shared blobs folder: follow them and count each real file once.
+    real_files = {f.resolve() for d in FASTEMBED_CACHE.glob("*") if key in d.name.lower() for f in d.rglob("*") if f.is_file()}
+    total = sum(f.stat().st_size for f in real_files)
     return round(total / 1e6) if total else None
 
 
