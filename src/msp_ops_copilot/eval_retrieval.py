@@ -6,15 +6,28 @@ Compares embedding models so we choose with data, not opinion.
 """
 
 import csv
+import json
 import math
 import os
+import resource
+import subprocess
 import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 from openai import OpenAI
 
 from msp_ops_copilot import rag
 from msp_ops_copilot.llm import PROVIDERS
 
+HISTORY = rag.ROOT / "experiments" / "history.jsonl"
+FASTEMBED_CACHE = Path.home() / ".cache" / "fastembed"
+STATS = {"api_calls": 0, "chars_embedded": 0}
+LOCAL_MODELS = {
+    "local-multilingual-minilm": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "local-potion-multilingual": "minishlab/potion-multilingual-128M",
+}
 TICKETS = rag.ROOT / "data" / "golden" / "tickets.csv"
 MATRIX = rag.ROOT / "data" / "kb_app" / "impact-matrix.md"
 
@@ -22,7 +35,19 @@ MATRIX = rag.ROOT / "data" / "kb_app" / "impact-matrix.md"
 def minilm(texts: list[str]) -> list[list[float]]:
     from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
+    STATS["chars_embedded"] += sum(map(len, texts))
     return [list(map(float, v)) for v in DefaultEmbeddingFunction()(texts)]
+
+
+def local(model_name: str):
+    def embed(texts: list[str]) -> list[list[float]]:
+        from fastembed import TextEmbedding
+
+        STATS["chars_embedded"] += sum(map(len, texts))
+        model = TextEmbedding(model_name=model_name, cache_dir=str(FASTEMBED_CACHE))
+        return [list(map(float, v)) for v in model.embed(texts)]
+
+    return embed
 
 
 def gemini(texts: list[str]) -> list[list[float]]:
@@ -32,6 +57,8 @@ def gemini(texts: list[str]) -> list[list[float]]:
     out = []
     for i in range(0, len(texts), 50):  # modest batches to respect free-tier limits
         out += [d.embedding for d in client.embeddings.create(model=model, input=texts[i : i + 50]).data]
+        STATS["api_calls"] += 1
+    STATS["chars_embedded"] += sum(map(len, texts))
     return out
 
 
@@ -63,9 +90,43 @@ def evaluate(embed) -> dict:
     return {"n": len(cases), "top1": top1, "top3": top3, "misses": misses}
 
 
+def disk_mb(name: str) -> float | None:
+    """Size of the downloaded local model on disk (None for cloud/other)."""
+    if name not in LOCAL_MODELS:
+        return None
+    key = LOCAL_MODELS[name].split("/")[-1].lower()
+    total = sum(f.stat().st_size for d in FASTEMBED_CACHE.glob("*") if key in d.name.lower() for f in d.rglob("*") if f.is_file())
+    return round(total / 1e6) if total else None
+
+
+def log_run(name: str, result: dict, seconds: float) -> None:
+    """Append one experiment record. Peak memory is for this whole process, so run one embedder per process."""
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=rag.ROOT).stdout.strip()
+    record = {
+        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "git_commit": commit,
+        "experiment": "retrieval-impact-matrix",
+        "name": name,
+        "n": result["n"], "top1": result["top1"], "top3": result["top3"],
+        "seconds": round(seconds, 1),
+        "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6),  # bytes on macOS
+        "api_calls": STATS["api_calls"], "chars_embedded": STATS["chars_embedded"],
+        "model_disk_mb": disk_mb(name),
+        "misses": result["misses"],
+    }
+    HISTORY.parent.mkdir(exist_ok=True)
+    with HISTORY.open("a") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+EMBEDDERS = {"minilm": minilm, "gemini": gemini, **{k: local(v) for k, v in LOCAL_MODELS.items()}}
+
 if __name__ == "__main__":
-    for name in sys.argv[1:] or ["minilm", "gemini"]:
-        r = evaluate({"minilm": minilm, "gemini": gemini}[name])
-        print(f"{name}: top-1 {r['top1']}/{r['n']}  top-3 {r['top3']}/{r['n']}")
-        for m in r["misses"]:
-            print("   miss", m)
+    name = sys.argv[1]
+    started = time.perf_counter()
+    r = evaluate(EMBEDDERS[name])
+    seconds = time.perf_counter() - started
+    log_run(name, r, seconds)
+    print(f"{name}: top-1 {r['top1']}/{r['n']}  top-3 {r['top3']}/{r['n']}  ({seconds:.1f}s)")
+    for m in r["misses"]:
+        print("   miss", m)
