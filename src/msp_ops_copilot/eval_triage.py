@@ -120,7 +120,7 @@ def main() -> None:
         "time": datetime.now(timezone.utc).isoformat(timespec="seconds"), "git_commit": commit,
         "experiment": "triage-v2", "labels": golden_version(), "name": f"{provider}:{model}" + (f" [{args.name}]" if args.name else ""),
         "n": len(chosen), "n_ok": len(pairs), "accuracy": result, "seconds": round(seconds, 1),
-        "llm_calls": stats["calls"], "retries_429": stats["retries"], "invalid_json": stats["invalid_json"],
+        "llm_calls": stats["calls"], "retries_429": stats["retries"], "invalid_json": stats["invalid_json"], "guard_flags": stats["guard_flags"],
         "prompt_tokens": stats["prompt_tokens"], "completion_tokens": stats["completion_tokens"],
         "avg_latency_s": round(stats["latency_s"] / max(stats["calls"], 1), 2),
         "embed_api_calls": embeddings.STATS["api_calls"], "embed_cache_hits": embeddings.STATS["cache_hits"],

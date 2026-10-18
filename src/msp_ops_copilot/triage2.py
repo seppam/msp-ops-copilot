@@ -92,7 +92,7 @@ def chat(client, model: str, messages: list[dict], stats: dict):
 
 
 def new_stats() -> dict:
-    return {"calls": 0, "retries": 0, "latency_s": 0.0, "prompt_tokens": 0, "completion_tokens": 0, "invalid_json": 0}
+    return {"calls": 0, "retries": 0, "latency_s": 0.0, "prompt_tokens": 0, "completion_tokens": 0, "invalid_json": 0, "guard_flags": []}
 
 
 def triage(ticket: dict, earlier: list[dict], stats: dict, retries: int = 1) -> Triage2:
@@ -106,7 +106,11 @@ def triage(ticket: dict, earlier: list[dict], stats: dict, retries: int = 1) -> 
     for attempt in range(retries + 1):
         raw = chat(client, model, messages, stats)
         try:
-            return Triage2.model_validate_json(raw)
+            from msp_ops_copilot.guards import apply_guards  # local import: guards imports Triage2 from this module
+
+            pred, flags = apply_guards(ticket, Triage2.model_validate_json(raw))
+            stats["guard_flags"] += [f"{ticket['id']}:{f}" for f in flags]
+            return pred
         except ValidationError as exc:
             stats["invalid_json"] += 1
             if attempt == retries:
