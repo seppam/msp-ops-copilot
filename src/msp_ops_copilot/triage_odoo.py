@@ -43,7 +43,9 @@ def note_text(pred, steps: list[dict], flags: list[str]) -> str:
         lines.append(f"Safety flags: {', '.join(flags)}")
     lines.append(f"Reason: {pred.reason}")
     lines.append("Planned steps (nothing has been sent or assigned):")
-    lines += [f"- {s['action']} -> {s['target']} [{'automatic' if s['auto'] else 'needs approval'}]" for s in steps]
+    for s in steps:
+        lines.append(f"- {s['action']} -> {s['target']} [{'automatic' if s['auto'] else 'needs approval'}]")
+        lines += [f"    {n}. {c}" for n, c in enumerate(s.get("checklist", []), 1)]
     return "\n".join(lines)
 
 

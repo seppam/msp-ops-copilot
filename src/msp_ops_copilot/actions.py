@@ -4,6 +4,7 @@ Pure function: (ticket, recommendation, guard flags) -> a plan. Nothing is sent 
 can be reviewed, tested and later executed by n8n. Principles:
   * Anything touching business data, routing or customers' expectations needs a human to approve.
   * Information-only notices (acknowledgement, alert to the Team Leader) may be automatic.
+  * Waiting for the requester never stops work: assignment and the ask-back email go out in parallel.
   * Needs_human / escalate / injection / delete requests: no automation except telling the right person.
   * If the AI fails, the ticket falls back to the normal ops queue. Automation never blocks a ticket.
 """
@@ -11,8 +12,19 @@ can be reviewed, tested and later executed by n8n. Principles:
 ROUTE_TEAMS = {"route_comsec": "comsec", "route_network": "network team", "route_change_request": "business team (change request)", "route_request": "ops team (service request)"}
 
 
-def step(action: str, target: str, why: str, auto: bool) -> dict:
-    return {"action": action, "target": target, "why": why, "auto": auto, "needs_approval": not auto}
+# For vague reports ("everything is broken") the ops engineer starts here, without waiting for the requester.
+FIRST_CHECKS = [
+    "Cek ketersediaan sistem: aplikasi dan database berjalan, tidak ada error massal",
+    "Cek jaringan: apakah aplikasi bisa dijangkau dari lokasi pelapor dan dari lokasi lain",
+    "Jika hanya lokasi pelapor yang gagal: eskalasi ke tim jaringan",
+]
+
+
+def step(action: str, target: str, why: str, auto: bool, checklist: list[str] | None = None) -> dict:
+    out = {"action": action, "target": target, "why": why, "auto": auto, "needs_approval": not auto}
+    if checklist:
+        out["checklist"] = checklist
+    return out
 
 
 def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = None) -> list[dict]:
@@ -27,7 +39,11 @@ def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = 
         steps.append(step("notify_team_leader", "team leader", f"{pred.priority} / {pred.handover}: leader decides order or handover", auto=True))
     if pred.handover == "needs_info" or pred.resolution_path == "ask_user" or missing:
         steps.append(step("draft_ask_back_email", "requester", "Missing: " + (", ".join(missing) or "confirmation needed"), auto=False))
-        steps.append(step("hold_assignment", "ops queue", "Wait for the requester's answer before assigning", auto=True))
+        # Asking and working happen in parallel: the SLA clock runs from assignment and a real outage cannot wait for an email.
+        vague = pred.priority == "unknown" or len(missing) >= 3
+        steps.append(step("assign_to", "ops engineer",
+                          "Start first checks while the requester answers" if vague else "Start while waiting for the requester's answer",
+                          auto=False, checklist=FIRST_CHECKS if vague else None))
         return steps
     if pred.handover in ROUTE_TEAMS:
         steps.append(step("assign_to", ROUTE_TEAMS[pred.handover], "Hand over with context pack", auto=False))

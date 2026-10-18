@@ -27,7 +27,7 @@ The rendered ticket is plain `Label: value` lines in the Odoo task description, 
 | Outcome | Automatic (information only) | Needs a person to approve |
 |---|---|---|
 | Any ticket | Acknowledge receipt to the requester, with no promise about timing or fix | |
-| Missing information | Hold assignment | Send the drafted ask-back email |
+| Missing information | | Send the drafted ask-back email AND assign to an ops engineer at once. Vague reports (priority unknown or 3+ gaps) come with first checks: 1) system availability, 2) network from the requester's site and from another site, 3) if only the requester's site fails, escalate to the network team |
 | Route to comsec / network / business / service request | | Assign with a context pack |
 | Support team handles it | | Assign to an ops engineer, send the drafted workaround message |
 | P1, review, or project handover | Alert the Team Leader | The handover decision itself |
@@ -38,7 +38,7 @@ Rules behind the table:
 1. **Nothing that changes business data, assigns work or sets customer expectations is automatic.** The plan is produced by `actions.py` as data; nothing is sent from there.
 2. **Dangerous cases get no automatic follow-up.** Deletion requests, injection attempts and anything marked escalate only notify the Team Leader.
 3. **Automation fails open to humans.** If the AI step breaks, the ticket still reaches the ops queue and someone is told. It is never blocked or dropped.
-4. **The SLA clock starts at assignment**, so slow or wrong assignment costs the most. The ask-back email goes out before assignment so the assignee can start immediately.
+4. **Waiting for the requester never stops work.** The SLA clock starts at assignment and a real outage cannot wait for an email reply, so the ask-back email and the assignment happen in parallel. Only dangerous cases are held, and only until the Team Leader decides.
 
 ## 3. Follow-up emails
 

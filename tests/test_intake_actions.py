@@ -43,10 +43,19 @@ def test_dangerous_cases_only_notify_the_team_leader():
         assert all(s["auto"] for s in steps)  # information only: nothing that changes data or promises anything
 
 
-def test_missing_information_blocks_assignment_and_needs_approval():
+def test_missing_information_asks_and_assigns_in_parallel():
     steps = actions.plan(T, pred(missing_info=["pesan_error"]), [])
-    assert "draft_ask_back_email" in kinds(steps) and "assign_to" not in kinds(steps)
+    assert {"draft_ask_back_email", "assign_to"} <= set(kinds(steps)) and "hold_assignment" not in kinds(steps)
     assert next(s for s in steps if s["action"] == "draft_ask_back_email")["needs_approval"]
+    assert "checklist" not in next(s for s in steps if s["action"] == "assign_to")  # one gap: no first-check list needed
+
+
+def test_vague_outage_report_starts_with_availability_then_network_checks():
+    vague = pred(priority="unknown", handover="needs_info", resolution_path="ask_user",
+                 missing_info=["langkah_reproduksi", "contoh_record", "pesan_error", "waktu_mulai", "user_terdampak"])
+    assign = next(s for s in actions.plan(T, vague, []) if s["action"] == "assign_to")
+    assert assign["target"] == "ops engineer" and assign["needs_approval"]
+    assert "ketersediaan sistem" in assign["checklist"][0] and "jaringan" in assign["checklist"][1] and "tim jaringan" in assign["checklist"][2]
 
 
 def test_form_gaps_trigger_ask_back_even_if_the_model_missed_them():
