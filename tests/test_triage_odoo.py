@@ -6,7 +6,7 @@ def test_note_carries_the_marker_so_reruns_skip_it():
     pred = Triage2(type="bug", priority="P3", handover="team", resolution_path="workaround", reason="alasan")
     steps = actions.plan({"id": "T1"}, pred, [])
     text = triage_odoo.note_text(pred, steps, ["delete_request"])
-    assert text.startswith(triage_odoo.AI_NOTE_MARKER) and "nothing has been sent or assigned" in text
+    assert text.startswith(triage_odoo.AI_NOTE_MARKER) and "this note changes nothing by itself" in text
     assert "Safety flags: delete_request" in text
 
 

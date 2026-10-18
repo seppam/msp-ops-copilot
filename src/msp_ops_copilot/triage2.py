@@ -92,12 +92,13 @@ def chat(client, model: str, messages: list[dict], stats: dict):
 
 
 def new_stats() -> dict:
-    return {"calls": 0, "retries": 0, "latency_s": 0.0, "prompt_tokens": 0, "completion_tokens": 0, "invalid_json": 0, "guard_flags": []}
+    return {"calls": 0, "retries": 0, "latency_s": 0.0, "prompt_tokens": 0, "completion_tokens": 0, "invalid_json": 0, "guard_flags": [], "evidence": {}}
 
 
 def triage(ticket: dict, earlier: list[dict], stats: dict, retries: int = 1) -> Triage2:
     client, model = get_client()
-    context, _ = _context(ticket, earlier)
+    context, rules = _context(ticket, earlier)
+    stats["evidence"][ticket["id"]] = rules  # which company rules the model was shown
     visible = {k: ticket[k] for k in ("submitted_at", "category", "app", "menu", "label_by_ops", "subject", "description", "screenshot_note")}
     messages = [
         {"role": "system", "content": SYSTEM + "\n\n" + context},

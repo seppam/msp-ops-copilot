@@ -1,6 +1,6 @@
 import pytest
 
-from msp_ops_copilot.ask_back import draft_ask_back
+from msp_ops_copilot.ask_back import draft_ask_back, requester_email
 from msp_ops_copilot.guards import apply_guards
 from msp_ops_copilot.triage2 import Triage2
 
@@ -54,3 +54,14 @@ def test_ask_back_email_lists_only_the_missing_items():
     mail = draft_ask_back({"id": "T07", "subject": "SO error"}, ["pesan_error", "contoh_record"])
     assert "1. Contoh nomor dokumen" not in mail["body"] and "Pesan error" in mail["body"]
     assert mail["subject"].startswith("[Tiket T07]") and "Yth. Bapak/Ibu" in mail["body"]
+
+
+def test_requester_email_names_the_pic_and_makes_no_promise():
+    mail = requester_email({"id": "T05", "subject": "Nominal bill beda"}, "Budi (Ops)", [])
+    assert "Budi (Ops)" in mail["subject"] and "email tindak lanjut dari PIC" in mail["body"]
+    assert "jam" not in mail["body"] and "hari" not in mail["body"] and "lengkapi" not in mail["body"]
+
+
+def test_requester_email_asks_with_a_polite_ignore_line():
+    mail = requester_email({"id": "T07", "subject": "SO error"}, "Budi (Ops)", ["pesan_error", "waktu_mulai"])
+    assert "1. Pesan error" in mail["body"] and "2. Kapan masalah" in mail["body"] and "mohon abaikan" in mail["body"]

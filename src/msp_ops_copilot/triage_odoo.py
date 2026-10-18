@@ -42,7 +42,7 @@ def note_text(pred, steps: list[dict], flags: list[str]) -> str:
     if flags:
         lines.append(f"Safety flags: {', '.join(flags)}")
     lines.append(f"Reason: {pred.reason}")
-    lines.append("Planned steps (nothing has been sent or assigned):")
+    lines.append("Planned steps (this note changes nothing by itself):")
     for s in steps:
         lines.append(f"- {s['action']} -> {s['target']} [{'automatic' if s['auto'] else 'needs approval'}]")
         lines += [f"    {n}. {c}" for n, c in enumerate(s.get("checklist", []), 1)]
@@ -67,7 +67,7 @@ def main() -> None:
         try:
             pred = triage2.triage(t, earlier, stats)
             flags = [f.split(":", 1)[1] for f in stats["guard_flags"][seen:]]
-            steps = actions.plan(t, pred, flags)  # legacy free-text tickets have no structured form fields to check
+            steps = actions.plan(t, pred, flags, has_playbook=actions.has_documented_workaround(stats["evidence"].get(t["id"], [])))  # legacy free-text tickets have no structured form fields to check
             text = note_text(pred, steps, flags)
         except Exception as exc:  # fail open: the ticket stays in the normal manual queue
             steps = actions.plan_on_failure(t, exc.__class__.__name__)

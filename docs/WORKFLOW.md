@@ -22,38 +22,49 @@ A field filled with "-", "tidak tahu" or empty counts as missing. Rules for this
 
 The rendered ticket is plain `Label: value` lines in the Odoo task description, readable by people and parseable by code.
 
-## 2. What happens after triage
+## 2. What happens after triage (phase 1)
 
-| Outcome | Automatic (information only) | Needs a person to approve |
+The ops team is always first. Every ticket gets a PIC (person in charge) who checks it and decides whether to escalate to the Team Leader or follow up with comsec, the network team, the project team or the business team. The system never contacts those people itself.
+
+| Outcome | What the system does automatically | What stays with the PIC |
 |---|---|---|
-| Any ticket | Acknowledge receipt to the requester, with no promise about timing or fix | |
-| Missing information | | Send the drafted ask-back email AND assign to an ops engineer at once. Vague reports (priority unknown or 3+ gaps) come with first checks: 1) system availability, 2) network from the requester's site and from another site, 3) if only the requester's site fails, escalate to the network team |
-| Route to comsec / network / business / service request | | Assign with a context pack |
-| Support team handles it | | Assign to an ops engineer, send the drafted workaround message |
-| P1, review, or project handover | Alert the Team Leader | The handover decision itself |
-| needs_human, escalate, delete request, possible prompt injection | Alert the Team Leader and hold the ticket | Everything else |
-| AI fails (rate limit, invalid output, outage) | Fall back to the normal manual queue and alert the ops lead | |
+| Every ticket | Assign the PIC. Send ONE formal email to the requester: the ticket is in the system, here is the PIC, please wait for the PIC's follow-up email | Check the ticket |
+| Information missing | Same email also asks for the missing items, with a line "if you already provided this, please ignore". Vague reports (priority unknown or 3+ gaps) also give the PIC first checks: 1) system availability, 2) network from the requester's site and from another site, 3) if only that site fails, escalate to the network team | Decide whether the answers are enough |
+| Information complete | No questions: straight to the PIC | |
+| Needs follow-up with comsec / network / business | Flag a suggestion to the PIC | Write the follow-up |
+| P1, review, project handover | Flag "escalation candidate" to the PIC | Check first, then escalate to the Team Leader |
+| needs_human, escalate, delete request, possible prompt injection | Acknowledgement only (no questions), and tell the PIC no data may change without the Team Leader's approval | Check, then escalate to the Team Leader |
+| Nothing specific to ask, but a confirmation is needed (T03 type) | Flag "confirm directly" | Ask the requester directly. No draft is generated |
+| Documented workaround exists in the knowledge base | Draft a workaround message for the PIC. It is not sent | Review and send |
+| No documented answer | No draft: saves LLM calls | Handle directly |
+| AI fails (rate limit, invalid output, outage) | Normal manual queue, alert the ops lead | |
 
 Rules behind the table:
-1. **Nothing that changes business data, assigns work or sets customer expectations is automatic.** The plan is produced by `actions.py` as data; nothing is sent from there.
-2. **Dangerous cases get no automatic follow-up.** Deletion requests, injection attempts and anything marked escalate only notify the Team Leader.
-3. **Automation fails open to humans.** If the AI step breaks, the ticket still reaches the ops queue and someone is told. It is never blocked or dropped.
-4. **Waiting for the requester never stops work.** The SLA clock starts at assignment and a real outage cannot wait for an email reply, so the ask-back email and the assignment happen in parallel. Only dangerous cases are held, and only until the Team Leader decides.
+1. **The ops team decides every escalation.** The system flags candidates but never alerts the Team Leader or other teams on its own.
+2. **Waiting for the requester never stops work.** The SLA clock starts at assignment and a real outage cannot wait for an email reply, so assignment and the questions go out together.
+3. **Dangerous cases get no questions and no automatic follow-up.**
+4. **Automation fails open to humans.** If the AI step breaks, the ticket still reaches the ops queue and someone is told.
+5. **Drafts exist only when the system has documented knowledge.** Otherwise the PIC handles it directly.
+6. Phase 1 sends the requester email automatically. The risk is a question about something the requester already gave (the model's missing-information precision measured 31 to 80%), so every email carries the ignore line and is recorded in the ticket. Review by sampling.
 
-## 3. Follow-up emails
+## 3. Requester email
 
-Wording is a fixed template controlled by the ops team. The model only chooses which items are missing, which keeps the tone consistent and removes the risk of the model promising something. Emails are reviewed before sending. Local testing uses a mail catcher (nothing leaves the machine).
+One formal email per ticket from a fixed template (`ask_back.py`, `requester_email`). The model only chooses which items are missing, so the tone is consistent and the email can never promise a fix time. Local testing uses Mailpit (nothing leaves the machine).
+
+## 3b. Template improvement loop
+
+If the PIC keeps having to confirm the same thing, or the same item keeps being missing for a menu, the form should change. `template_insights.py` counts these per menu and, once a pattern reaches a threshold (default 3), proposes a change: add a required field, add an example, or add a template question. The ops team reviews and edits the form. Nothing changes automatically.
 
 ## 4. Earning more autonomy
 
 Approval gates can be removed one at a time, only when measured results justify it on the labelled set:
-- Level 0 (now): everything except acknowledgements and Team Leader alerts is a draft.
-- Level 1: automatic ask-back emails for pure missing-information cases. Needs high precision on `missing_info` (currently 31 to 80% depending on model and run, so not yet).
-- Level 2: automatic routing for the categories with proven accuracy.
-Dangerous cases never move beyond a notification.
+- Phase 1 (now): automatic PIC assignment and requester email. Escalation, follow-ups with other teams and workaround messages stay with the PIC.
+- Next: automatic follow-up emails to other teams for categories with proven routing accuracy (currently about 65%, so not yet).
+Dangerous cases never move beyond flagging the PIC.
 
 ## 5. Open points
 
+- Who is on duty as PIC and how the rotation works (the mock uses a placeholder).
 - Ask-back reminder timing and what happens when the requester never answers.
 - Whether the SLA clock pauses while waiting for the requester.
 - Real mail delivery needs an SMTP account and real recipients, which is out of scope for the mock project.

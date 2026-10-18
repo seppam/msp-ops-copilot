@@ -1,18 +1,23 @@
-"""Decide what should happen after triage: which steps automation may take and which need a human.
+"""Decide what should happen after triage. Pure function: nothing is sent or changed here.
 
-Pure function: (ticket, recommendation, guard flags) -> a plan. Nothing is sent or changed here, so the plan
-can be reviewed, tested and later executed by n8n. Principles:
-  * Anything touching business data, routing or customers' expectations needs a human to approve.
-  * Information-only notices (acknowledgement, alert to the Team Leader) may be automatic.
-  * Waiting for the requester never stops work: assignment and the ask-back email go out in parallel.
-  * Needs_human / escalate / injection / delete requests: no automation except telling the right person.
-  * If the AI fails, the ticket falls back to the normal ops queue. Automation never blocks a ticket.
+Rules (phase 1):
+  * The ops team is always first. Every ticket gets a PIC (person in charge) who checks it and decides
+    whether to escalate to the Team Leader or follow up with comsec / network / project team / business.
+    The system never contacts those teams or the Team Leader by itself.
+  * The requester gets ONE formal email: the ticket is in the system, here is the PIC, wait for the PIC's follow-up.
+    If information is missing it is asked in the same email, automatically. Complete tickets get no questions.
+  * Dangerous cases (needs_human, escalate, delete request, injection): acknowledgement only, no questions,
+    and the PIC is told not to change any data without the Team Leader's approval.
+  * Drafts (e.g. workaround message) are produced only when documented knowledge exists. Otherwise the PIC
+    handles it directly, which also saves LLM calls.
+  * If the AI fails, the ticket still goes to the manual ops queue and the ops lead is alerted.
 """
 
+import re
+
 ROUTE_TEAMS = {"route_comsec": "comsec", "route_network": "network team", "route_change_request": "business team (change request)", "route_request": "ops team (service request)"}
-
-
-# For vague reports ("everything is broken") the ops engineer starts here, without waiting for the requester.
+PIC = "ops PIC (on duty)"
+# For vague reports ("everything is broken") the PIC starts here, without waiting for the requester.
 FIRST_CHECKS = [
     "Cek ketersediaan sistem: aplikasi dan database berjalan, tidak ada error massal",
     "Cek jaringan: apakah aplikasi bisa dijangkau dari lokasi pelapor dan dari lokasi lain",
@@ -20,43 +25,45 @@ FIRST_CHECKS = [
 ]
 
 
-def step(action: str, target: str, why: str, auto: bool, checklist: list[str] | None = None) -> dict:
-    out = {"action": action, "target": target, "why": why, "auto": auto, "needs_approval": not auto}
+def step(action: str, target: str, why: str, checklist: list[str] | None = None, **extra) -> dict:
+    out = {"action": action, "target": target, "why": why, "auto": True, "needs_approval": False, **extra}
     if checklist:
         out["checklist"] = checklist
     return out
 
 
-def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = None) -> list[dict]:
-    steps = [step("send_acknowledgement", "requester", "Confirm receipt, no promises about timing or fix", auto=True)]
+def has_documented_workaround(rules: list[dict]) -> bool:
+    """First, simple rule for 'the system has an advance evaluation': a retrieved impact-matrix section names a workaround."""
+    return any(r["source"] == "impact-matrix.md" and re.search(r"workaround|alternatif", r["text"], re.I) for r in rules)
+
+
+def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = None, pic: str = PIC, has_playbook: bool = False) -> list[dict]:
     missing = sorted(set(form_missing or []) | set(pred.missing_info))
     risky = pred.handover == "needs_human" or pred.resolution_path == "escalate" or any(f in ("delete_request", "possible_injection") for f in flags)
+    vague = (pred.priority == "unknown" or len(missing) >= 3) and not risky
+    ask = [] if risky else missing
+    steps = [
+        step("assign_pic", pic, "First check by the ops team; escalating is the PIC's decision", checklist=FIRST_CHECKS if vague else None),
+        step("send_requester_email", "requester",
+             "Formal acknowledgement naming the PIC; wait for the PIC's follow-up" + (f"; asks for: {', '.join(ask)}" if ask else ""),
+             missing=ask),
+    ]
     if risky:
-        steps.append(step("notify_team_leader", "team leader", "Needs a human decision: " + (", ".join(flags) or pred.handover), auto=True))
-        steps.append(step("hold_ticket", "ops queue", "No automatic follow-up until the Team Leader decides", auto=True))
-        return steps
-    if pred.priority == "P1" or pred.handover in ("project", "review"):
-        steps.append(step("notify_team_leader", "team leader", f"{pred.priority} / {pred.handover}: leader decides order or handover", auto=True))
-    if pred.handover == "needs_info" or pred.resolution_path == "ask_user" or missing:
-        steps.append(step("draft_ask_back_email", "requester", "Missing: " + (", ".join(missing) or "confirmation needed"), auto=False))
-        # Asking and working happen in parallel: the SLA clock runs from assignment and a real outage cannot wait for an email.
-        vague = pred.priority == "unknown" or len(missing) >= 3
-        steps.append(step("assign_to", "ops engineer",
-                          "Start first checks while the requester answers" if vague else "Start while waiting for the requester's answer",
-                          auto=False, checklist=FIRST_CHECKS if vague else None))
-        return steps
-    if pred.handover in ROUTE_TEAMS:
-        steps.append(step("assign_to", ROUTE_TEAMS[pred.handover], "Hand over with context pack", auto=False))
-    else:
-        steps.append(step("assign_to", "ops engineer", "Support team handles it", auto=False))
-        if pred.resolution_path == "workaround":
-            steps.append(step("draft_workaround_message", "requester", "Alternative business flow while the bug waits", auto=False))
+        steps.append(step("flag_for_pic", pic, "Needs a human decision (" + (", ".join(flags) or pred.handover) + "). No data change without the Team Leader's approval; the PIC escalates if confirmed"))
+    elif pred.priority == "P1" or pred.handover in ("project", "review"):
+        steps.append(step("flag_for_pic", pic, f"Escalation candidate ({pred.priority} / {pred.handover}): check first, then escalate to the Team Leader"))
+    elif pred.handover in ROUTE_TEAMS:
+        steps.append(step("flag_for_pic", pic, f"Suggested follow-up with {ROUTE_TEAMS[pred.handover]}; the PIC writes it"))
+    elif (pred.handover == "needs_info" or pred.resolution_path == "ask_user") and not missing:
+        steps.append(step("flag_for_pic", pic, "Confirm directly with the requester (no template question for this yet)", confirm_directly=True))
+    if not risky and pred.resolution_path == "workaround" and has_playbook:
+        steps.append(step("draft_workaround_for_pic", pic, "Documented workaround found: draft for the PIC to review and send. Not sent automatically"))
     return steps
 
 
 def plan_on_failure(ticket: dict, error: str) -> list[dict]:
     """AI unavailable or its answer was unusable: do the manual process and tell someone."""
     return [
-        step("assign_to", "ops queue (default)", "Normal manual intake, no AI recommendation", auto=True),
-        step("notify_ops_lead", "ops lead", f"AI step failed: {error}", auto=True),
+        step("assign_pic", "ops queue (default)", "Normal manual intake, no AI recommendation"),
+        step("notify_ops_lead", "ops lead", f"AI step failed: {error}"),
     ]
