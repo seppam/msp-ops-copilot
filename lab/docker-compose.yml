@@ -1,0 +1,63 @@
+# Odoo Community lab: reusable for any Odoo learning project.
+# Start:  docker compose up -d      Stop (keeps data): docker compose stop
+# Reset everything: docker compose down -v
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odoo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 5s
+      retries: 10
+
+  odoo:
+    image: odoo:19.0
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8069:8069"   # bound to localhost only
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odoo-data:/var/lib/odoo
+    mem_limit: 2g
+
+  # Optional: only starts with `docker compose --profile n8n up -d n8n mailpit`
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    profiles: ["n8n"]
+    ports:
+      - "127.0.0.1:5678:5678"   # localhost only
+    environment:
+      N8N_SECURE_COOKIE: "false"          # plain http on localhost
+      N8N_DIAGNOSTICS_ENABLED: "false"    # no telemetry
+      N8N_PERSONALIZATION_ENABLED: "false"
+      GENERIC_TIMEZONE: Asia/Jakarta
+    volumes:
+      - n8n-data:/home/node/.n8n
+    mem_limit: 768m
+
+  # Optional local mail catcher: receives emails from n8n and shows them in a web page. Nothing leaves this machine.
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: ["n8n"]
+    ports:
+      - "127.0.0.1:8025:8025"   # web inbox
+      - "127.0.0.1:1025:1025"   # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    mem_limit: 128m
+
+volumes:
+  odoo-db:
+  odoo-data:
+  n8n-data:
