@@ -8,6 +8,7 @@ scoped write. There is deliberately no delete or free-form update tool.
 
 import html
 import logging
+import os
 import re
 
 from mcp.server.mcpserver import MCPServer
@@ -28,7 +29,8 @@ STATE_LABELS = {
     "1_canceled": "closed",
 }
 CLOSED_STATES = [s for s, label in STATE_LABELS.items() if label == "closed"]
-SERVICE_DESK = ("project_id.name", "=", "Service Desk")
+PROJECTS = [name.strip() for name in os.getenv("ODOO_TICKET_PROJECTS", "Service Desk,App Support").split(",")]
+SERVICE_DESK = ("project_id.name", "in", PROJECTS)  # the only projects the AI may read or annotate
 
 
 def _plain(html: str | bool) -> str:
