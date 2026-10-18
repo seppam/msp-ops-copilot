@@ -1,0 +1,24 @@
+{
+  "id": "outboxEmail01",
+  "name": "Requester email outbox",
+  "active": false,
+  "nodes": [
+    {"id": "n1", "name": "Manual Trigger", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0], "parameters": {}},
+    {"id": "n2", "name": "Every minute (disabled)", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 200], "disabled": true,
+     "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 1}]}}},
+    {"id": "n3", "name": "Fetch pending emails", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [240, 100],
+     "parameters": {"url": "http://host.docker.internal:8787/pending", "options": {}}},
+    {"id": "n4", "name": "Send email (Mailpit)", "type": "n8n-nodes-base.emailSend", "typeVersion": 2.1, "position": [480, 100],
+     "parameters": {"fromEmail": "support@example.test", "toEmail": "={{ $json.to }}", "subject": "={{ $json.subject }}", "emailFormat": "text", "text": "={{ $json.body }}", "options": {"appendAttribution": false}},
+     "credentials": {"smtp": {"id": "smtpMailpit01", "name": "Mailpit (local mail catcher)"}}},
+    {"id": "n5", "name": "Confirm sent to Odoo", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [720, 100],
+     "parameters": {"method": "POST", "url": "=http://host.docker.internal:8787/sent/{{ $('Fetch pending emails').item.json.id }}", "options": {}}}
+  ],
+  "connections": {
+    "Manual Trigger": {"main": [[{"node": "Fetch pending emails", "type": "main", "index": 0}]]},
+    "Every minute (disabled)": {"main": [[{"node": "Fetch pending emails", "type": "main", "index": 0}]]},
+    "Fetch pending emails": {"main": [[{"node": "Send email (Mailpit)", "type": "main", "index": 0}]]},
+    "Send email (Mailpit)": {"main": [[{"node": "Confirm sent to Odoo", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

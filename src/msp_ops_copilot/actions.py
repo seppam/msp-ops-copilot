@@ -1,9 +1,10 @@
 """Decide what should happen after triage. Pure function: nothing is sent or changed here.
 
 Rules (phase 1):
-  * The ops team is always first. Every ticket gets a PIC (person in charge) who checks it and decides
-    whether to escalate to the Team Leader or follow up with comsec / network / project team / business.
-    The system never contacts those teams or the Team Leader by itself.
+  * Every ticket is assigned straight to the right team's PIC (person in charge): ops by default, comsec,
+    network or the business team when the triage says so. Anything that needs ESCALATION (P1, review, project
+    handover, dangerous cases) always goes through the OPS PIC, who decides whether to involve the Team Leader
+    or the project team. The system never contacts the Team Leader or the project team itself.
   * The requester gets ONE formal email: the ticket is in the system, here is the PIC, wait for the PIC's follow-up.
     If information is missing it is asked in the same email, automatically. Complete tickets get no questions.
   * Dangerous cases (needs_human, escalate, delete request, injection): acknowledgement only, no questions,
@@ -15,8 +16,13 @@ Rules (phase 1):
 
 import re
 
-ROUTE_TEAMS = {"route_comsec": "comsec", "route_network": "network team", "route_change_request": "business team (change request)", "route_request": "ops team (service request)"}
 PIC = "ops PIC (on duty)"
+TEAM_PICS = {  # who receives the ticket for each routing outcome (placeholders for an on-duty rotation)
+    "route_comsec": "comsec PIC (on duty)",
+    "route_network": "network PIC (on duty)",
+    "route_change_request": "business team PIC (change requests)",
+    "route_request": PIC,
+}
 # For vague reports ("everything is broken") the PIC starts here, without waiting for the requester.
 FIRST_CHECKS = [
     "Cek ketersediaan sistem: aplikasi dan database berjalan, tidak ada error massal",
@@ -42,18 +48,19 @@ def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = 
     risky = pred.handover == "needs_human" or pred.resolution_path == "escalate" or any(f in ("delete_request", "possible_injection") for f in flags)
     vague = (pred.priority == "unknown" or len(missing) >= 3) and not risky
     ask = [] if risky else missing
+    escalation = risky or pred.priority == "P1" or pred.handover in ("project", "review")
+    target = pic if risky else TEAM_PICS.get(pred.handover, pic)
     steps = [
-        step("assign_pic", pic, "First check by the ops team; escalating is the PIC's decision", checklist=FIRST_CHECKS if vague else None),
+        step("assign_pic", target, "Assigned directly to the team the triage points to" if target != pic else "First check by the ops team; escalating is the PIC's decision",
+             checklist=FIRST_CHECKS if vague else None),
         step("send_requester_email", "requester",
              "Formal acknowledgement naming the PIC; wait for the PIC's follow-up" + (f"; asks for: {', '.join(ask)}" if ask else ""),
              missing=ask),
     ]
     if risky:
         steps.append(step("flag_for_pic", pic, "Needs a human decision (" + (", ".join(flags) or pred.handover) + "). No data change without the Team Leader's approval; the PIC escalates if confirmed"))
-    elif pred.priority == "P1" or pred.handover in ("project", "review"):
+    elif escalation:
         steps.append(step("flag_for_pic", pic, f"Escalation candidate ({pred.priority} / {pred.handover}): check first, then escalate to the Team Leader"))
-    elif pred.handover in ROUTE_TEAMS:
-        steps.append(step("flag_for_pic", pic, f"Suggested follow-up with {ROUTE_TEAMS[pred.handover]}; the PIC writes it"))
     elif (pred.handover == "needs_info" or pred.resolution_path == "ask_user") and not missing:
         steps.append(step("flag_for_pic", pic, "Confirm directly with the requester (no template question for this yet)", confirm_directly=True))
     if not risky and pred.resolution_path == "workaround" and has_playbook:

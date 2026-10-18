@@ -7,8 +7,9 @@ the plan is for the ops team to approve (see docs/WORKFLOW.md).
 
 import argparse
 
-from msp_ops_copilot import actions, intake, triage2
+from msp_ops_copilot import actions, intake, outbox, triage2
 from msp_ops_copilot import odoo_client as odoo
+from msp_ops_copilot.ask_back import requester_email
 from msp_ops_copilot.mcp_server import add_ticket_note
 from msp_ops_copilot.triage import AI_NOTE_MARKER, already_triaged
 
@@ -28,7 +29,7 @@ def load_tickets() -> list[dict]:
             "odoo_id": task["id"], "id": f.get("id_uji", f"#{task['id']}"), "submitted_at": f.get("tanggal", ""),
             "category": f.get("kategori", ""), "app": clean(f.get("aplikasi", "")), "menu": clean(f.get("menu", "")),
             "label_by_ops": f.get("label_ops", ""), "subject": "" if task["name"] == "(tanpa judul)" else task["name"],
-            "description": clean(f.get("deskripsi", "")), "screenshot_note": clean(f.get("pesan_error", "")), "form": f,
+            "email": f.get("email", ""), "description": clean(f.get("deskripsi", "")), "screenshot_note": clean(f.get("pesan_error", "")), "form": f,
         })
     return sorted(tickets, key=lambda t: (t["submitted_at"], t["id"]))
 
@@ -75,6 +76,12 @@ def main() -> None:
         print(f"--- {t['id']} {t['subject'] or '(tanpa judul)'}\n{text}")
         if args.write:
             add_ticket_note(t["odoo_id"], text)
+            email_step = next((s for s in steps if s["action"] == "send_requester_email"), None)
+            if email_step and t["email"]:
+                pic = next(s["target"] for s in steps if s["action"] == "assign_pic")
+                mail = requester_email(t, pic, email_step["missing"])
+                queued = outbox.enqueue(t["id"], t["odoo_id"], t["email"], mail["subject"], mail["body"])
+                print(f"   email {'queued' if queued else 'already queued'} for {t['email']}")
     print(f"\ntokens: {stats['prompt_tokens']} in / {stats['completion_tokens']} out, calls {stats['calls']}, 429 retries {stats['retries']}")
 
 

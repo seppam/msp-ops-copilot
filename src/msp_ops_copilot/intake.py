@@ -12,6 +12,7 @@ import re
 LABELS = {
     "id_uji": "ID uji",
     "tanggal": "Tanggal",
+    "email": "Email pelapor",
     "kategori": "Kategori",
     "aplikasi": "Aplikasi",
     "menu": "Menu",

@@ -42,23 +42,28 @@ def test_every_ticket_gets_a_pic_and_one_formal_email():
         assert kinds(steps).count("assign_pic") == 1 and kinds(steps).count("send_requester_email") == 1
 
 
-def test_the_system_never_contacts_the_team_leader_or_other_teams_itself():
+def test_the_system_never_contacts_the_team_leader_itself():
     cases = [(pred(priority="P1"), []), (pred(handover="project"), []), (pred(handover="route_comsec", resolution_path="route"), []),
              (pred(handover="needs_human", resolution_path="escalate"), ["delete_request"])]
     for p, flags in cases:
+        assert "notify_team_leader" not in kinds(actions.plan(T, p, flags))
+
+
+def test_tickets_are_assigned_straight_to_the_right_team():
+    for handover, team in [("route_comsec", "comsec PIC"), ("route_network", "network PIC"), ("route_change_request", "business team PIC"), ("route_request", "ops PIC"), ("team", "ops PIC")]:
+        assert by(actions.plan(T, pred(handover=handover, resolution_path="route"), []), "assign_pic")["target"].startswith(team)
+
+
+def test_escalation_cases_stay_with_the_ops_pic_who_decides():
+    for p, flags in [(pred(priority="P1"), []), (pred(handover="project"), []), (pred(handover="needs_human", resolution_path="escalate"), ["delete_request"])]:
         steps = actions.plan(T, p, flags)
-        assert "notify_team_leader" not in kinds(steps) and "assign_to" not in kinds(steps)
-        assert by(steps, "assign_pic")["target"] == actions.PIC
+        assert by(steps, "assign_pic")["target"] == actions.PIC  # no team of its own: ops handles it first
+        assert by(steps, "flag_for_pic")["target"] == actions.PIC  # the ops PIC is always the one to escalate
 
 
 def test_escalation_candidates_are_flagged_to_the_pic_who_decides():
     flag = by(actions.plan(T, pred(priority="P1"), []), "flag_for_pic")
     assert "escalate to the Team Leader" in flag["why"]
-
-
-def test_routing_is_a_suggestion_for_the_pic_to_follow_up():
-    flag = by(actions.plan(T, pred(handover="route_comsec", resolution_path="route"), []), "flag_for_pic")
-    assert "comsec" in flag["why"] and "PIC writes it" in flag["why"]
 
 
 def test_missing_information_is_asked_automatically_in_the_same_email():
