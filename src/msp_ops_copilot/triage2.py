@@ -42,9 +42,10 @@ priority: P1-P4 by business impact x urgency, or unknown when the ticket lacks t
   Urgency high = deadline today (delivery, closing, audit); medium = within days; low = none.
   High impact + urgency high/medium = P1; high impact + low urgency, or medium impact + high urgency = P2; medium + medium, or low + high = P3; otherwise P4.
   If an earlier similar ticket shows more users are affected, raise impact one level. Month-end closing counts as urgency high.
+  Several reports of the same issue (a burst of notifications) can be a false input or a shared cause: keep priority high if impact is high, but choose handover review and resolution_path ask_user so the team verifies before any handover to the project team.
 handover: team (our team can fix data/config or give a workaround) | review (cause unclear or needs Team Leader review) | project (reproducible bug with big impact, for the project team) | needs_info (ask the requester first) | needs_human (dangerous request such as deleting financial data) | route_comsec (access rights, accounts, permission or privacy leaks) | route_network (network/connectivity) | route_change_request (UI or standard change, business team must file a change request) | route_request (how-to or service request)
 resolution_path: fix_now (we can correct data/config now) | workaround (give an alternative business flow while a bug waits) | ask_user (confirm or collect information) | route (hand to another team) | escalate (needs Team Leader decision)
-missing_info: only items needed to start work that the ticket clearly lacks, from {MISSING}. A screenshot_note counts as evidence of the error message.
+missing_info: only items needed to start work that the ticket clearly lacks, from {MISSING}. Do NOT list an item the ticket already states: a phrase like 'sejak kemarin' gives waktu_mulai, a document number gives contoh_record, a quoted error in screenshot_note gives pesan_error, 'semua user' or a named user gives user_terdampak. Ask only for what is needed to START work; when unsure, leave it out.
 duplicate_of: id of an earlier candidate ticket describing the same issue, else null. related_change: id from the change log if the same menu was changed shortly before the problem began, else null.
 reason: one short sentence in Indonesian."""
 
