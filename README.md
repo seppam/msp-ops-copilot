@@ -25,6 +25,10 @@ flowchart LR
     CC[Claude Code or any MCP client] --- MCP
 ```
 
+![Mailpit inbox after the n8n workflow ran](docs/img/mailpit-inbox.jpg)
+
+*The local Mailpit inbox after the n8n workflow ran: one formal email per ticket, each naming the PIC on duty. The salary-data ticket (T26) went to the comsec PIC. All addresses are fictional.*
+
 Example of what the system produces for a ticket reporting that a Sales user can see salary data:
 - Recommendation note on the Odoo ticket: type other, priority P1, route to comsec.
 - Assigned straight to the **comsec PIC**; the **ops PIC** is flagged as the one who decides about escalation.
@@ -44,15 +48,15 @@ Example of what the system produces for a ticket reporting that a Sales user can
 | 7 | Domain pivot and evaluation | Moved to application support. Wrote company rules in Bahasa Indonesia and a 30-ticket labelled set; built an evaluation script that scores models against it and logs every run. | `data/kb_app/`, `data/golden/`, `eval_triage.py`, `experiments/` |
 | 8 | Retrieval experiment | English-trained vs multilingual embeddings on Indonesian tickets. Gemini embeddings clearly won. | `eval_retrieval.py` |
 | 9 | Triage v2 | Type, priority, handover, resolution path, missing information, duplicate and related-change detection, in a single validated JSON answer. | `triage2.py`, `kb.py`, `embeddings.py` |
-| 10 | Safety guards | Code that runs after the model: delete requests are forced to a human, a prompt that demands P1 cannot buy it. | `guards.py` |
-| 11 | Workflow design | Submission template, action planner, formal requester email, template-improvement report. | `intake.py`, `actions.py`, `ask_back.py`, `template_insights.py`, `docs/WORKFLOW.md` |
+| 10 | Safety guards | Code that runs after the model: delete requests are forced to a human, an injected demand for P1 cannot buy it, and a vague ticket cannot be P1 from its wording. | `guards.py` |
+| 11 | Workflow design | Submission template, action planner, formal requester email, daily PIC rotation, template-improvement report. | `intake.py`, `actions.py`, `ask_back.py`, `pics.py`, `template_insights.py`, `docs/WORKFLOW.md` |
 | 12 | Automation | Odoo wiring, an outbox, and an n8n workflow that sends the requester emails through Mailpit and writes "email sent" back to the ticket. | `triage_odoo.py`, `outbox*.py`, `automation/` |
 
 The design behind phases 9 to 12 is in [docs/DESIGN.md](docs/DESIGN.md) and [docs/WORKFLOW.md](docs/WORKFLOW.md). Measured resource use is in [docs/RESOURCES.md](docs/RESOURCES.md).
 
 ## Rules the automation follows
 
-- **Every ticket gets a PIC and one formal email.** The email says the ticket is registered, names the PIC, and asks the requester to wait for the PIC's follow-up.
+- **Every ticket gets a PIC and one formal email.** The PIC on duty rotates daily through a roster (`data/roster.json`, fictional names). The email says the ticket is registered, names the PIC, and asks the requester to wait for the PIC's follow-up.
 - **The email asks for missing information in the same message**, automatically. A ticket that is complete gets no questions. Each question list is introduced with "if you already provided this, please ignore", because the model sometimes asks for something already given.
 - **Assignment goes straight to the right team** (ops, comsec, network, business team). **Escalation always goes through the ops PIC**, who decides whether to involve the Team Leader or the project team. The system never alerts either itself.
 - **Waiting for the requester never stops work.** Vague "everything is down" reports come with first checks for the PIC: system availability, then network from the requester's site and another site, then the network team if only that site fails.
@@ -63,7 +67,7 @@ The design behind phases 9 to 12 is in [docs/DESIGN.md](docs/DESIGN.md) and [doc
 
 ## Results
 
-All numbers come from `experiments/history.jsonl` (`uv run python -m msp_ops_copilot.compare` prints them). They are small-sample, single-run results on fictional data. Labels are one practitioner's judgement, agreed in conversation, not an independent review.
+All numbers come from `experiments/history.jsonl` (`uv run python -m msp_ops_copilot.compare` prints them). They are small-sample results on fictional data. Labels are one practitioner's judgement, agreed in conversation, not an independent review.
 
 **Retrieval: does search find the right menu section? (26 tickets, Bahasa Indonesia)**
 
@@ -74,22 +78,24 @@ All numbers come from `experiments/history.jsonl` (`uv run python -m msp_ops_cop
 | Multilingual MiniLM, local | 13 / 26 | 17 / 26 | 1.0 GB | 252 MB |
 | Multilingual potion, local | 15 / 26 | 22 / 26 | 2.1 GB | 547 MB |
 
-**Triage v2: agreement with the labelled set (30 tickets)**
+**Triage v2: agreement with the labelled set (30 tickets, mean of 3 runs at temperature 0, range in brackets)**
 
-| | Type | Priority | Handover | Resolution path | Tokens in / out | Seconds per call |
+| | Type | Priority | Within one level | Handover | Resolution path | Questions asked: precision / recall |
 |---|---|---|---|---|---|---|
-| Gemini 3.5 flash-lite, baseline | 83% | 57% | 67% | 57% | 35.5k / 3.1k | 1.4 |
-| Gemini, after prompt changes | 83% | 60% | 67% | 70% | 39.1k / 2.9k | 1.2 |
-| Gemini, same prompt, re-run with guards | 83% | 53% | 63% | 63% | 39.1k / 2.9k | 1.2 |
-| Groq gpt-oss-120b, baseline | 77% | 63% | 63% | 40% | 39.9k / 7.2k | 7.8 |
-| Groq, after prompt changes | 70% | 63% | 57% | 50% | 39.6k / 7.3k | 8.0 |
+| Gemini 3.5 flash-lite | 83% (83-83) | 60% (60-60) | 96% | 64% (63-67) | 66% (60-70) | 81% / 54% |
+| Groq gpt-oss-120b | 83% (80-87) | 53% (50-57) | 82% (79-86) | 62% (57-67) | 49% (47-50) | 34% / 62% |
+
+| Cost of one 30-ticket run | Tokens in / out | Seconds per call |
+|---|---|---|
+| Gemini | about 39,100 / 2,900 | 13.9 in the repeated runs (1.2 in earlier runs; the cause is unknown) |
+| Groq | about 39,600 / 7,600 | 7.7 |
 
 What to take from it:
-- **Run-to-run noise is about 7 points.** Gemini's two runs with the identical prompt differ on priority (60% vs 53%) and resolution path (70% vs 63%). Differences of a few points are not evidence of an improvement. Repeated runs at temperature 0 are still to do.
-- **Priority is usually close:** within one level on 89 to 96% of tickets, but exact agreement is only about 53 to 63%. The system therefore recommends and a person decides.
-- **Safety held in every run:** the injection ticket stayed P4, the "delete all invoices" request went to a human, and the vague "URGENT!!!" ticket was not made P1.
-- **Missing-information questions are the weak spot:** precision between 21% and 80% depending on model and run, which is why every email carries the "please ignore" line.
-- **Handover (routing) agreement is about 57 to 67%.** Automatic assignment to the wrong team costs SLA time, so the reroute rate is the first thing to monitor.
+- **Repeatability:** even at temperature 0, single metrics move by 0 to 10 points between identical runs (for example Gemini's resolution path ranged 60 to 70%). Treat differences of a few points as noise.
+- **Priority is usually close but rarely exact.** Gemini is within one level on 96% of tickets, Groq on 82%. Exact agreement is 53 to 60%. The system therefore recommends and a person decides.
+- **The models differ in how they ask.** Gemini's questions are right 81% of the time but it misses about half of what is missing. Groq asks for more and is right only 34% of the time. That is why every email carries the "please ignore" line.
+- **Handover (routing) agreement is about 62 to 64%.** Automatic assignment to the wrong team costs SLA time, so the reroute rate is the first thing to monitor.
+- **Safety needed code, not only prompts.** In one of three Gemini runs the model rated the vague "URGENT!!!" ticket as P1. A guard now forces `unknown` for tickets that lack four or more key facts, and the table above includes that guard. The injection ticket never reached P1 or P2 in any run, and the "delete all invoices" request went to a human in every run.
 
 ## Run it yourself
 
@@ -133,13 +139,13 @@ docker compose exec -T n8n n8n import:workflow --input=/tmp/wf.json
 docker compose exec -T -e N8N_RUNNERS_BROKER_PORT=5680 n8n n8n execute --id=outboxEmail01
 ```
 
-Evaluation and tests:
+Evaluation and tests (add `--temperature 0` for the most repeatable runs):
 
 ```bash
 uv run python -m msp_ops_copilot.eval_triage --name my-run    # scores against data/golden/tickets.csv
 uv run python -m msp_ops_copilot.compare                      # history table
 uv run python -m msp_ops_copilot.template_insights            # which questions keep recurring
-uv run pytest                                                 # 60 tests, no network, no Odoo
+uv run pytest                                                 # 66 tests, no network, no Odoo
 ```
 
 Register the MCP server in Claude Code: `claude mcp add --scope user msp-odoo -- uv --directory <repo path> run python -m msp_ops_copilot.mcp_server`
@@ -153,6 +159,7 @@ The n8n workflow has an "Every minute" schedule trigger that ships disabled; ena
 | `src/msp_ops_copilot/` | Application code (one module per concern, listed in the phase table) |
 | `data/kb_app/` | Company rules in Bahasa Indonesia: impact matrix, SLA and priority, access matrix, deletion policy, handover checklist, ticket template |
 | `data/golden/` | Labelled tickets, change log, labelling guide |
+| `data/roster.json` | Fictional on-duty roster per team |
 | `data/kb/`, `data/tickets.json` | Earlier infrastructure-helpdesk prototype (phases 1 to 6) |
 | `experiments/` | `history.jsonl` and per-run predictions |
 | `automation/` | n8n workflow and mail credential (no secrets) |
@@ -163,12 +170,12 @@ The n8n workflow has an "Every minute" schedule trigger that ships disabled; ena
 ## Honest limits
 
 - The commands above were run against the original development lab folder. `lab/` is a copy of that compose file (minus a custom-addons mount) and was validated but not started as a second stack.
-- Fictional data, 30 labelled tickets, single-run results with about 7 points of noise.
+- Fictional data and 30 labelled tickets. Results are means of three runs and still move by up to 10 points per metric.
 - The "advance evaluation" rule for drafting workaround messages is crude (a documented workaround in the retrieved impact-matrix section).
 - Mailpit is a development mail catcher. Real delivery needs SMTP and real recipients.
 - Free-tier limits and model names change; check them in each provider's console.
 - Local multilingual embedding models were tried and were worse than Gemini's cloud embeddings. A private deployment would need a stronger local model on proper hardware, which this project did not have.
-- PIC assignment uses placeholder names, not an on-duty rotation.
+- The PIC rotation is a plain daily rotation over a fictional roster. It ignores leave, skills and workload.
 - Local Docker data was lost once during this project; production needs backups of the Odoo and Postgres volumes.
 
 ## Licence

@@ -65,3 +65,19 @@ def test_requester_email_names_the_pic_and_makes_no_promise():
 def test_requester_email_asks_with_a_polite_ignore_line():
     mail = requester_email({"id": "T07", "subject": "SO error"}, "Budi (Ops)", ["pesan_error", "waktu_mulai"])
     assert "1. Pesan error" in mail["body"] and "2. Kapan masalah" in mail["body"] and "mohon abaikan" in mail["body"]
+
+
+def test_a_vague_ticket_cannot_be_p1_from_its_wording():
+    five = ["langkah_reproduksi", "contoh_record", "pesan_error", "waktu_mulai", "user_terdampak"]
+    out, flags = apply_guards(ticket(subject="URGENT!!! sistem error semua!!!"), pred(priority="P1", missing_info=five))
+    assert out.priority == "unknown" and "vague_priority" in flags
+
+
+def test_a_specific_ticket_keeps_its_high_priority():
+    out, flags = apply_guards(ticket(subject="PPN dobel di invoice"), pred(priority="P1", missing_info=["pesan_error"]))
+    assert out.priority == "P1" and flags == []
+
+
+def test_vague_guard_only_lowers_never_raises():
+    out, _ = apply_guards(ticket(), pred(priority="P3", missing_info=["a"] * 0))
+    assert out.priority == "P3"

@@ -27,5 +27,27 @@ def main() -> None:
             print(f"{name:52} {a['type']:>5.0%} {a['priority']:>5.0%} {a['handover']:>5.0%} {a['resolution_path']:>5.0%} {r['prompt_tokens']:>7} {r['completion_tokens']:>7} {r['avg_latency_s']:>6} {r['retries_429']:>4} {cost:>7}")
 
 
+def repeated() -> None:
+    """Mean and range over the repeated temperature-0 runs (latest scoring of each run)."""
+    import statistics as st
+
+    runs = {}
+    for line in HISTORY.read_text().splitlines():
+        r = json.loads(line)
+        if "t0 run" in r["name"]:
+            runs[r["name"]] = r
+    by = {}
+    for name, r in runs.items():
+        by.setdefault(name.split(":")[0], []).append(r)
+    print("\nREPEATED RUNS at temperature 0: mean (min-max) over runs")
+    for prov, rs in by.items():
+        cells = []
+        for key, label in [("type", "type"), ("priority", "prio"), ("handover", "hand"), ("resolution_path", "path"), ("missing_precision", "askPrec")]:
+            v = [r["accuracy"][key] * 100 for r in rs]
+            cells.append(f"{label} {st.mean(v):.0f}% ({min(v):.0f}-{max(v):.0f})")
+        print(f"{prov:10} {len(rs)} runs | " + " | ".join(cells))
+
+
 if __name__ == "__main__":
     main()
+    repeated()

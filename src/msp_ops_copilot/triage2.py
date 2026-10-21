@@ -17,6 +17,7 @@ from msp_ops_copilot import embeddings, kb
 from msp_ops_copilot.llm import PROVIDERS, get_client
 
 CHANGE_LOG = kb.rag.ROOT / "data" / "golden" / "change-log.csv"
+TEMPERATURE: float | None = None  # set by the evaluation for repeatable runs; None = provider default
 MISSING = ["langkah_reproduksi", "contoh_record", "pesan_error", "waktu_mulai", "user_terdampak"]
 
 
@@ -75,6 +76,7 @@ def chat(client, model: str, messages: list[dict], stats: dict):
             resp = client.chat.completions.create(
                 model=model, messages=messages, max_tokens=700,
                 response_format={"type": "json_object"}, **({"extra_body": extra} if extra else {}),
+                **({"temperature": TEMPERATURE} if TEMPERATURE is not None else {}),
             )
         except openai.RateLimitError as exc:
             stats["retries"] += 1

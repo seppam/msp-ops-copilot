@@ -1,4 +1,4 @@
-from msp_ops_copilot import actions, intake
+from msp_ops_copilot import actions, intake, pics
 from msp_ops_copilot.triage2 import Triage2
 
 
@@ -50,15 +50,15 @@ def test_the_system_never_contacts_the_team_leader_itself():
 
 
 def test_tickets_are_assigned_straight_to_the_right_team():
-    for handover, team in [("route_comsec", "comsec PIC"), ("route_network", "network PIC"), ("route_change_request", "business team PIC"), ("route_request", "ops PIC"), ("team", "ops PIC")]:
-        assert by(actions.plan(T, pred(handover=handover, resolution_path="route"), []), "assign_pic")["target"].startswith(team)
+    for handover, team in [("route_comsec", "(comsec PIC)"), ("route_network", "(network PIC)"), ("route_change_request", "(business PIC)"), ("route_request", "(ops PIC)"), ("team", "(ops PIC)")]:
+        assert team in by(actions.plan(T, pred(handover=handover, resolution_path="route"), []), "assign_pic")["target"]
 
 
 def test_escalation_cases_stay_with_the_ops_pic_who_decides():
     for p, flags in [(pred(priority="P1"), []), (pred(handover="project"), []), (pred(handover="needs_human", resolution_path="escalate"), ["delete_request"])]:
         steps = actions.plan(T, p, flags)
-        assert by(steps, "assign_pic")["target"] == actions.PIC  # no team of its own: ops handles it first
-        assert by(steps, "flag_for_pic")["target"] == actions.PIC  # the ops PIC is always the one to escalate
+        assert by(steps, "assign_pic")["target"] == pics.on_duty("ops")  # no team of its own: ops handles it first
+        assert by(steps, "flag_for_pic")["target"] == pics.on_duty("ops")  # the ops PIC is always the one to escalate
 
 
 def test_escalation_candidates_are_flagged_to_the_pic_who_decides():
@@ -131,3 +131,25 @@ def test_template_suggestions_appear_only_after_a_pattern_repeats():
     assert any("'pesan_error' was missing in 3 tickets" in s for s in three)
     confirm = insights([t("a"), t("b"), t("c")], {i: p(resolution_path="ask_user") for i in "abc"}, threshold=3)
     assert any("confirm something directly in 3 tickets" in s for s in confirm)
+
+
+def test_pic_rotates_daily_and_is_the_same_all_day():
+    from datetime import date, timedelta
+    d = date(2026, 10, 21)
+    names = [pics.on_duty("ops", d + timedelta(days=n)) for n in range(4)]
+    assert names[0] == pics.on_duty("ops", d) and len(set(names[:3])) == 3 and names[3] == names[0]  # 3 people, wraps around
+    assert all(n.endswith("(ops PIC)") for n in names)
+
+
+def test_plan_uses_the_pic_on_duty_for_the_requested_day():
+    from datetime import date
+    day = date(2026, 10, 22)
+    steps = actions.plan(T, pred(handover="route_comsec", resolution_path="route", priority="P1"), [], today=day)
+    assert by(steps, "assign_pic")["target"] == pics.on_duty("comsec", day)
+    assert by(steps, "flag_for_pic")["target"] == pics.on_duty("ops", day)  # escalation stays with ops
+
+
+def test_every_roster_team_has_at_least_one_person():
+    import json
+    roster = json.loads(pics.ROSTER_FILE.read_text())
+    assert all(roster[t] for t in ("ops", "comsec", "network", "business"))

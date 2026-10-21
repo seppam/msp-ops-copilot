@@ -45,7 +45,7 @@ Rules behind the table:
 3. **Dangerous cases get no questions and no automatic follow-up.**
 4. **Automation fails open to humans.** If the AI step breaks, the ticket still reaches the ops queue and someone is told.
 5. **Drafts exist only when the system has documented knowledge.** Otherwise the PIC handles it directly.
-6. Phase 1 sends the requester email automatically. The risk is a question about something the requester already gave (the model's missing-information precision measured 31 to 80%), so every email carries the ignore line and is recorded in the ticket. Review by sampling.
+6. Phase 1 sends the requester email automatically. The risk is a question about something the requester already gave (measured precision of the questions: about 81% for Gemini and 34% for Groq), so every email carries the ignore line and is recorded in the ticket. Review by sampling.
 
 ## 3. Requester email
 
@@ -64,7 +64,7 @@ Dangerous cases never move beyond flagging the PIC.
 
 ## 5. Open points
 
-- Who is on duty as PIC and how the rotation works (the mock uses a placeholder).
+- PIC on duty rotates daily over `data/roster.json` (fictional names). A real rotation would also account for leave, skills and workload.
 - Ask-back reminder timing and what happens when the requester never answers.
 - Whether the SLA clock pauses while waiting for the requester.
 - Real mail delivery needs an SMTP account and real recipients, which is out of scope for the mock project.

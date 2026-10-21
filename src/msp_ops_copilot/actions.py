@@ -15,14 +15,11 @@ Rules (phase 1):
 """
 
 import re
+from datetime import date
 
-PIC = "ops PIC (on duty)"
-TEAM_PICS = {  # who receives the ticket for each routing outcome (placeholders for an on-duty rotation)
-    "route_comsec": "comsec PIC (on duty)",
-    "route_network": "network PIC (on duty)",
-    "route_change_request": "business team PIC (change requests)",
-    "route_request": PIC,
-}
+from msp_ops_copilot.pics import on_duty
+
+TEAM_ROSTER = {"route_comsec": "comsec", "route_network": "network", "route_change_request": "business", "route_request": "ops"}
 # For vague reports ("everything is broken") the PIC starts here, without waiting for the requester.
 FIRST_CHECKS = [
     "Cek ketersediaan sistem: aplikasi dan database berjalan, tidak ada error massal",
@@ -43,13 +40,14 @@ def has_documented_workaround(rules: list[dict]) -> bool:
     return any(r["source"] == "impact-matrix.md" and re.search(r"workaround|alternatif", r["text"], re.I) for r in rules)
 
 
-def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = None, pic: str = PIC, has_playbook: bool = False) -> list[dict]:
+def plan(ticket: dict, pred, flags: list[str], form_missing: list[str] | None = None, today: date | None = None, has_playbook: bool = False) -> list[dict]:
     missing = sorted(set(form_missing or []) | set(pred.missing_info))
     risky = pred.handover == "needs_human" or pred.resolution_path == "escalate" or any(f in ("delete_request", "possible_injection") for f in flags)
     vague = (pred.priority == "unknown" or len(missing) >= 3) and not risky
     ask = [] if risky else missing
     escalation = risky or pred.priority == "P1" or pred.handover in ("project", "review")
-    target = pic if risky else TEAM_PICS.get(pred.handover, pic)
+    pic = on_duty("ops", today)  # the ops PIC always owns escalation
+    target = pic if risky else on_duty(TEAM_ROSTER.get(pred.handover, "ops"), today)
     steps = [
         step("assign_pic", target, "Assigned directly to the team the triage points to" if target != pic else "First check by the ops team; escalating is the PIC's decision",
              checklist=FIRST_CHECKS if vague else None),
