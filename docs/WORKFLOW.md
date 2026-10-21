@@ -24,23 +24,23 @@ The rendered ticket is plain `Label: value` lines in the Odoo task description, 
 
 ## 2. What happens after triage (phase 1)
 
-The ops team is always first. Every ticket gets a PIC (person in charge) who checks it and decides whether to escalate to the Team Leader or follow up with comsec, the network team, the project team or the business team. The system never contacts those people itself.
+Every ticket is assigned straight to the right team's PIC (person in charge): ops by default, or comsec, the network team or the business team when the triage points there. **Escalation always goes through the ops PIC**, who decides whether to involve the Team Leader or the project team. The system never contacts the Team Leader or the project team itself.
 
 | Outcome | What the system does automatically | What stays with the PIC |
 |---|---|---|
-| Every ticket | Assign the PIC. Send ONE formal email to the requester: the ticket is in the system, here is the PIC, please wait for the PIC's follow-up email | Check the ticket |
+| Every ticket | Assign the PIC of the right team. Send ONE formal email to the requester: the ticket is in the system, here is the PIC, please wait for the PIC's follow-up email | Check the ticket |
 | Information missing | Same email also asks for the missing items, with a line "if you already provided this, please ignore". Vague reports (priority unknown or 3+ gaps) also give the PIC first checks: 1) system availability, 2) network from the requester's site and from another site, 3) if only that site fails, escalate to the network team | Decide whether the answers are enough |
 | Information complete | No questions: straight to the PIC | |
-| Needs follow-up with comsec / network / business | Flag a suggestion to the PIC | Write the follow-up |
-| P1, review, project handover | Flag "escalation candidate" to the PIC | Check first, then escalate to the Team Leader |
-| needs_human, escalate, delete request, possible prompt injection | Acknowledgement only (no questions), and tell the PIC no data may change without the Team Leader's approval | Check, then escalate to the Team Leader |
+| Triage points to comsec / network / business team | Assign directly to that team's PIC | Handle it. If it needs escalating, it goes through the ops PIC |
+| P1, review, project handover | Assign (ops by default) and flag "escalation candidate" to the OPS PIC, even when another team holds the ticket | The ops PIC checks first, then escalates to the Team Leader |
+| needs_human, escalate, delete request, possible prompt injection | Assign to the ops PIC. Acknowledgement only (no questions), and tell the PIC no data may change without the Team Leader's approval | The ops PIC checks, then escalates to the Team Leader |
 | Nothing specific to ask, but a confirmation is needed (T03 type) | Flag "confirm directly" | Ask the requester directly. No draft is generated |
 | Documented workaround exists in the knowledge base | Draft a workaround message for the PIC. It is not sent | Review and send |
 | No documented answer | No draft: saves LLM calls | Handle directly |
 | AI fails (rate limit, invalid output, outage) | Normal manual queue, alert the ops lead | |
 
 Rules behind the table:
-1. **The ops team decides every escalation.** The system flags candidates but never alerts the Team Leader or other teams on its own.
+1. **Assignment is direct, escalation is not.** The system assigns straight to the right team, but every escalation goes through the ops PIC. It never alerts the Team Leader or the project team on its own.
 2. **Waiting for the requester never stops work.** The SLA clock starts at assignment and a real outage cannot wait for an email reply, so assignment and the questions go out together.
 3. **Dangerous cases get no questions and no automatic follow-up.**
 4. **Automation fails open to humans.** If the AI step breaks, the ticket still reaches the ops queue and someone is told.
@@ -59,7 +59,7 @@ If the PIC keeps having to confirm the same thing, or the same item keeps being 
 
 Approval gates can be removed one at a time, only when measured results justify it on the labelled set:
 - Phase 1 (now): automatic PIC assignment and requester email. Escalation, follow-ups with other teams and workaround messages stay with the PIC.
-- Next: automatic follow-up emails to other teams for categories with proven routing accuracy (currently about 65%, so not yet).
+- Direct assignment already follows the triage's routing, whose agreement with the labelled set is only about 57 to 67%. Watch the reroute rate (tickets handed back to ops) and fall back to ops-first for any route that misroutes often.
 Dangerous cases never move beyond flagging the PIC.
 
 ## 5. Open points

@@ -170,3 +170,7 @@ The n8n workflow has an "Every minute" schedule trigger that ships disabled; ena
 - Local multilingual embedding models were tried and were worse than Gemini's cloud embeddings. A private deployment would need a stronger local model on proper hardware, which this project did not have.
 - PIC assignment uses placeholder names, not an on-duty rotation.
 - Local Docker data was lost once during this project; production needs backups of the Odoo and Postgres volumes.
+
+## Licence
+
+MIT, see [LICENSE](LICENSE).

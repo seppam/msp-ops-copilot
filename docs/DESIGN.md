@@ -13,7 +13,7 @@ This is the design the mock project is growing toward. It borrows from ITIL prac
 1. **Intake check.** Compare the ticket with the ticket template (steps, record, error, time, affected users). If something is missing, draft a question to the requester instead of assigning.
 2. **Enrichment.** Look up the menu in the impact matrix, the requester's role in the access matrix, similar tickets (duplicates), known errors and workarounds, and recent changes in the change log.
 3. **Recommendation.** Suggest type (bug, data, change impact, request), priority (impact x urgency, raised when several people report the same issue), the team to route to (ops, comsec, network, project team, business for change requests) and the resolution path (fix now, workaround, ask user, route, escalate).
-4. **Human decision** by the ops engineer or Team Leader. The recommendation is posted as a clearly labelled draft note with its sources.
+4. **Human decision** by the PIC who received the ticket. Escalations go through the ops PIC to the Team Leader. The recommendation is posted as a clearly labelled draft note with its sources.
 5. **Resolution within the SLA:** ask the user, fix now (for example a data correction), or give a workaround while a bug waits for a fix.
 6. **Handover pack** for the project team when the Team Leader decides: summary, menu, reproduction steps, expected vs actual, evidence, analysis, suspected cause, proposed fix, related change, customer impact. A bug is a handover candidate only when it was reproduced, narrowed down and a fix was proposed.
 7. **Learning loop.** Resolved tickets with a root cause become known-error entries. Outdated policy documents are flagged by owner and review date.
