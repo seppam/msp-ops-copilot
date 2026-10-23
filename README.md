@@ -34,6 +34,15 @@ Example of what the system produces for a ticket reporting that a Sales user can
 - Assigned straight to the **comsec PIC**; the **ops PIC** is flagged as the one who decides about escalation.
 - One formal email to the requester: the ticket is registered, here is the PIC, please wait for the PIC's follow-up. No promise about timing or fixes.
 
+## Videos
+
+| Explanation (76 s) | Demo (1:54) |
+|---|---|
+| [![Explanation video](docs/img/explainer-poster.jpg)](https://www.linkedin.com/feed/update/urn:li:activity:7519058326266130432/) | [![Demo video](docs/img/demo-thumbnail.jpg)](https://www.linkedin.com/feed/update/urn:li:activity:7519200941238304768/) |
+| Why the project exists, how a ticket flows through it, and what was measured. | One ticket from arrival to the requester email, then the measured results. |
+
+Both have an English voice-over (on LinkedIn, tap the video to unmute) and on-screen text. The demo is a replay viewer built from the real recorded outputs of the pipeline, not a live Odoo screen, and the screen is labelled REPLAY. All data is fictional.
+
 ## The phases, in order
 
 | # | Phase | What was built | Where |
